@@ -9,20 +9,23 @@ to a file, which we will grade using github classrooms!
 from __future__ import annotations
 
 from pathlib import Path
-from sklearn.metrics import accuracy_score
-import numpy as np
-from automl.automl import AutoML
 import argparse
+import torch
+from qtt.utils import extract_image_dataset_metadata
+from qtt.factory import get_optimizer
+from qtt.tuners import QuickTuner
+from qtt.finetune.cv.classification import finetune_script
 
 import logging
 
-from automl.datasets import FashionDataset, FlowersDataset, EmotionsDataset
+from src.datasets import FashionDataset, FlowersDataset, EmotionsDataset
 
 logger = logging.getLogger(__name__)
 
 
 def main(
     dataset: str,
+    budget: int,
     output_path: Path,
     seed: int,
 ):
@@ -38,33 +41,36 @@ def main(
 
     logger.info("Fitting AutoML")
 
-    # You do not need to follow this setup or API it's merely here to provide
-    # an example of how your automl system could be used.
-    # As a general rule of thumb, you should **never** pass in any
-    # test data to your AutoML solution other than to generate predictions.
-    automl = AutoML(seed=seed)
-    # load the dataset and create a loader then pass it
-    automl.fit(dataset_class)
-    # Do the same for the test dataset
-    test_preds, test_labels = automl.predict(dataset_class)
+    dataset = dataset_class(
+        root="./data",
+        download=True,
+    )
 
-    # Write the predictions of X_test to disk
-    # This will be used by github classrooms to get a performance
-    # on the test set.
-    logger.info("Writing predictions to disk")
-    with output_path.open("wb") as f:
-        np.save(f, test_preds)
+    opt = get_optimizer("mtlbm/micro")
+    opt.metafeatures = torch.tensor(
+        extract_image_dataset_metadata("dataset").to_numpy(), dtype=torch.float
+    )
+    qt = QuickTuner(opt, finetune_script)
+    task_info = {
+        "data_path": "data/" + dataset.dataset_name,
+        "train-split": "train",
+        "val-split": "val",
+        "num-classes": dataset.num_classes,
+    }
+    qt.run(task_info=task_info, time_budget=budget)
 
-    # check if test_labels has missing data
+    config, score, cost, config_id = qt.get_incumbent()
+    logger.info(f"Done! Config {config_id} performed best on validation data and got score {score}.")
 
-
-    if not np.isnan(test_labels).any():
-        acc = accuracy_score(test_labels, test_preds)
-        logger.info(f"Accuracy on test set: {acc}")
-    else:
-        # This is the setting for the exam dataset, you will not have access to the labels
-        logger.info(f"No test split for dataset '{dataset}'")
-
+    # # Do the same for the test dataset
+    # test_preds, test_labels = automl.predict(dataset_class)
+    #
+    # # Write the predictions of X_test to disk
+    # # This will be used by github classrooms to get a performance
+    # # on the test set.
+    # logger.info("Writing predictions to disk")
+    # with output_path.open("wb") as f:
+    #     np.save(f, test_preds)
 
 
 if __name__ == "__main__":
@@ -80,10 +86,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-path",
         type=Path,
-        default=Path("predictions.npy"),
+        default=Path("output/"),
         help=(
             "The path to save the predictions to."
-            " By default this will just save to './predictions.npy'."
+        )
+    )
+    parser.add_argument(
+        "--budget",
+        type=int,
+        default=3600,
+        help=(
+            "Budget in seconds"
         )
     )
     parser.add_argument(
@@ -115,6 +128,7 @@ if __name__ == "__main__":
 
     main(
         dataset=args.dataset,
+        budget=args.budget,
         output_path=args.output_path,
         seed=args.seed,
     )

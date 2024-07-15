@@ -5,17 +5,48 @@ If you want to edit this file be aware that we will later
 
 """
 
-
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple, Union
-
-import PIL.Image
+import os
+import shutil
 import pandas as pd
+import PIL.Image
+from sklearn.model_selection import train_test_split
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import download_and_extract_archive, check_integrity
 
-
 BASE_URL = "https://ml.informatik.uni-freiburg.de/research-artifacts/automl-exam-24-vision/"
+
+
+def create_imagefolder_structure(csv_file, images_folder, output_folder):
+    df = pd.read_csv(csv_file)
+
+    for _, row in df.iterrows():
+        label = str(row['label'])
+        img_file = row['image_file_name']
+        src = os.path.join(images_folder, img_file)
+        dst_dir = os.path.join(output_folder, label)
+        os.makedirs(dst_dir, exist_ok=True)
+        dst = os.path.join(dst_dir, img_file)
+        shutil.move(src, dst)
+
+
+def create_validation_split(train_csv, images_folder, output_folder, val_ratio=0.2):
+    df = pd.read_csv(train_csv)
+    train_df, val_df = train_test_split(df, test_size=val_ratio, stratify=df['label'])
+
+    # Save the new train and validation csv files
+    train_df.to_csv(os.path.join(output_folder, 'train.csv'), index=False)
+    val_df.to_csv(os.path.join(output_folder, 'val.csv'), index=False)
+
+    # Create the directory structure for train and val sets
+    create_imagefolder_structure(os.path.join(output_folder, 'train.csv'), images_folder,
+                                 os.path.join(output_folder, 'train'))
+    create_imagefolder_structure(os.path.join(output_folder, 'val.csv'), images_folder,
+                                 os.path.join(output_folder, 'val'))
+
+    # Remove old format files
+    os.remove(train_csv)
 
 
 class BaseVisionDataset(VisionDataset):
@@ -36,8 +67,8 @@ class BaseVisionDataset(VisionDataset):
             If dataset is already downloaded, it is not downloaded again.
     """
     _download_url_prefix = BASE_URL
-    _download_file = Tuple[str, str] # Checksum that is provided here is not used.
-    _dataset_name: str
+    _download_file = Tuple[str, str]  # Checksum that is provided here is not used.
+    dataset_name: str
     _md5_train: str
     _md5_test: str
     width: int
@@ -46,17 +77,17 @@ class BaseVisionDataset(VisionDataset):
     num_classes: int
 
     def __init__(
-        self,
-        root: Union[str, Path],
-        split: str = "train",
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        download: bool = False,
+            self,
+            root: Union[str, Path],
+            split: str = "train",
+            transform: Optional[Callable] = None,
+            target_transform: Optional[Callable] = None,
+            download: bool = False,
     ) -> None:
         super().__init__(root, transform=transform, target_transform=target_transform)
-        assert split in ["train", "test"], f"Split {split} not supported"
+        assert split in ["train", "val", "test"], f"Split {split} not supported"
         self._split = split
-        self._base_folder = Path(self.root) / self._dataset_name
+        self._base_folder = Path(self.root) / self.dataset_name
 
         if download:
             self.download()
@@ -67,15 +98,17 @@ class BaseVisionDataset(VisionDataset):
                 f"or download it manually from {self._download_url_prefix}{self._download_file[0]}"
             )
 
-        data = pd.read_csv(self._base_folder / f"{self._split}.csv")
-        self._labels = data['label'].tolist()
-        self._image_files = data['image_file_name'].tolist()
+        # data = pd.read_csv(self._base_folder / f"{self._split}.csv")
+        # self._labels = data['label'].tolist()
+        # self._image_files = data['image_file_name'].tolist()
 
     def _check_integrity(self):
         train_images_folder = self._base_folder / "images_train"
+        val_images_folder = self._base_folder / "images_val"
         test_images_folder = self._base_folder / "images_test"
         if not (train_images_folder.exists() and train_images_folder.is_dir()) or \
-           not (test_images_folder.exists() and test_images_folder.is_dir()):
+                not (val_images_folder.exists() and val_images_folder.is_dir()) or \
+                not (test_images_folder.exists() and test_images_folder.is_dir()):
             return False
 
         for filename, md5 in [("train.csv", self._md5_train), ("test.csv", self._md5_test)]:
@@ -84,7 +117,7 @@ class BaseVisionDataset(VisionDataset):
         return True
 
     def download(self):
-        """Download the dataset from the URL.
+        """Download the dataset from the URL and transform to ImageFolder format.
         """
         if self._check_integrity():
             return
@@ -92,6 +125,15 @@ class BaseVisionDataset(VisionDataset):
             f"{self._download_url_prefix}{self._download_file[0]}",
             str(self._base_folder),
         )
+        # Create train, val, and test directories in ImageFolder format
+        create_validation_split(self._base_folder / "train.csv", self._base_folder / "images_train", self._base_folder,
+                                val_ratio=0.2)
+        create_imagefolder_structure(self._base_folder / "test.csv", self._base_folder / "images_test",
+                                     self._base_folder / "test")
+
+        # Remove old files
+        os.remove(self._base_folder / "train.csv")
+        os.remove(self._base_folder / "test.csv")
 
     def extra_repr(self) -> str:
         """String representation of the dataset.
@@ -127,7 +169,7 @@ class EmotionsDataset(BaseVisionDataset):
     (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral).
     """
     _download_file = ("emotions.tgz", "e8302a10bc38a7bfb2e60c67b6bab1e4")
-    _dataset_name = "emotions"
+    dataset_name = "emotions"
     _md5_train = "7a48baafcddeb5b9caaa01c5b9fcd309"
     _md5_test = "6a4b219c98be434ca0c79da2df3b2f35"
     width = 48
@@ -142,7 +184,7 @@ class FlowersDataset(BaseVisionDataset):
     This dataset contains images of 102 types of flowers. The task is to classify the flower type.
     """
     _download_file = ("flowers.tgz", "31ff68dec06e95997aa4d77cd1eb5744")
-    _dataset_name = "flowers"
+    dataset_name = "flowers"
     _md5_train = "08f3283cfa42d37755bcf972ed368264"
     _md5_test = "778c82088dc9fc3659e9f14614b20735"
     width = 512
@@ -157,7 +199,7 @@ class FashionDataset(BaseVisionDataset):
     This dataset contains images of fashion items. The task is to classify what kind of fashion item it is.
     """
     _download_file = ("fashion.tgz", "ec70b7addb6493d4e3d57939ff76e2d5")
-    _dataset_name = "fashion"
+    dataset_name = "fashion"
     _md5_train = "a364148066eb5bace445e4c9e7fb95d4"
     _md5_test = "1d0bf72b43a3280067abb82d91c0c245"
     width = 28
