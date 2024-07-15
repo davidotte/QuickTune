@@ -1,6 +1,6 @@
 [project]
-name = "quicktunetool"
-version = "0.0.1"
+name = "quickertune"
+version = "0.1.0"
 dependencies = [
   "torch >= 2.0.0",
   "torchvision >= 0.15.1",
@@ -14,9 +14,8 @@ dependencies = [
   "tqdm >= 4.66.0",
 ]
 requires-python = ">=3.10"
-authors = [{ name = "Ivo Rapant", email = "rapanti@cs.uni-freiburg.de" }]
-readme = "README.md"
-description = "Quick-Tune: Quickly Learning Which Pretrained Model to Finetune and How"
+authors = [{ name = "Lugevid", email = "xyz@cs.uni-freiburg.de" }]
+description = "AutoML SS24 Exam - QuickTune"
 classifiers = [
   'Intended Audience :: Science/Research',
   'Intended Audience :: Developers',
@@ -36,5 +35,3 @@ where = ["src"]
 [tool.setuptools.package-data]
 "*" = ["*.*"]
 
-[project.urls]
-Homepage = "https://github.com/automl/QTT"
