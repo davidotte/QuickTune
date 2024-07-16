@@ -42,8 +42,7 @@ def main(
     logger.info("Fitting AutoML")
 
     dataset = dataset_class(
-        root="./data",
-        download=True,
+        root="./data"
     )
 
     opt = get_optimizer("mtlbm/micro")
