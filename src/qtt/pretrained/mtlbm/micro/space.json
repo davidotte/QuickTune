@@ -181,7 +181,7 @@
         "mobilevit_xxs",
         "dla46x_c"
       ],
-      "default": "beit_large_patch16_512",
+      "default": "edgenext_small",
       "weights": null
     },
     {

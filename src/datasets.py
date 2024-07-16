@@ -92,12 +92,6 @@ class BaseVisionDataset(VisionDataset):
         if download:
             self.download()
 
-        if not self._check_integrity():
-            raise RuntimeError(
-                "Dataset not found or corrupted. You can use download=True to download it "
-                f"or download it manually from {self._download_url_prefix}{self._download_file[0]}"
-            )
-
         # data = pd.read_csv(self._base_folder / f"{self._split}.csv")
         # self._labels = data['label'].tolist()
         # self._image_files = data['image_file_name'].tolist()
@@ -132,7 +126,7 @@ class BaseVisionDataset(VisionDataset):
                                      self._base_folder / "test")
 
         # Remove old files
-        os.remove(self._base_folder / "train.csv")
+        os.remove(self._base_folder / "val.csv")
         os.remove(self._base_folder / "test.csv")
 
     def extra_repr(self) -> str:
