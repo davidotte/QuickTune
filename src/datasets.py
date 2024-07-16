@@ -82,14 +82,13 @@ class BaseVisionDataset(VisionDataset):
             split: str = "train",
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
-            download: bool = False,
     ) -> None:
         super().__init__(root, transform=transform, target_transform=target_transform)
         assert split in ["train", "val", "test"], f"Split {split} not supported"
         self._split = split
         self._base_folder = Path(self.root) / self.dataset_name
 
-        if download:
+        if not self._base_folder.exists():
             self.download()
 
         # data = pd.read_csv(self._base_folder / f"{self._split}.csv")

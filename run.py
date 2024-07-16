@@ -48,7 +48,7 @@ def main(
 
     opt = get_optimizer("mtlbm/micro")
     opt.metafeatures = torch.tensor(
-        extract_image_dataset_metadata("dataset").to_numpy(), dtype=torch.float
+        extract_image_dataset_metadata("data/" + dataset.dataset_name).to_numpy(), dtype=torch.float
     )
     qt = QuickTuner(opt, finetune_script)
     task_info = {
