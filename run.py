@@ -48,12 +48,6 @@ def main(
     )
 
     opt = get_optimizer("mtlbm/micro")
-    # Read our config space such we can drop larger pretrained models
-    config_space = cs_json.read(open(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "pretrained", "mtlbm", "our_space.json"), "r"
-        ).read())
-    opt.cm.cs = config_space
     opt.metafeatures = torch.tensor(
         extract_image_dataset_metadata("data/" + dataset.dataset_name).to_numpy(), dtype=torch.float
     )

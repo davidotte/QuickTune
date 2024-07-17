@@ -24,6 +24,13 @@ def get_optimizer(name_or_path: str):
     norm_path = os.path.join(root, "config_norm.csv")
     config_norm = pd.read_csv(norm_path, index_col=0)
     cm = ConfigManager(config_space, config_norm)
+    # Read our config space such we can drop larger pretrained models
+    config_space = cs_json.read(open(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "pretrained", "mtlbm", "our_space.json"), "r"
+    ).read())
+    cm.cs = config_space
+
     dyhpo = DyHPO.from_pretrained(root)
     cost_estimator = CostEstimator.from_pretrained(root)
 
