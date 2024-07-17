@@ -15,7 +15,9 @@ from qtt.utils import extract_image_dataset_metadata
 from qtt.factory import get_optimizer
 from qtt.tuners import QuickTuner
 from qtt.finetune.cv.classification import finetune_script
+from ConfigSpace.read_and_write import json as cs_json
 
+import os
 import logging
 
 from src.datasets import FashionDataset, FlowersDataset, EmotionsDataset
@@ -46,6 +48,12 @@ def main(
     )
 
     opt = get_optimizer("mtlbm/micro")
+    # Read our config space such we can drop larger pretrained models
+    config_space = cs_json.read(open(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "pretrained", "mtlbm", "our_space.json"), "r"
+        ).read())
+    opt.cm.cs = config_space
     opt.metafeatures = torch.tensor(
         extract_image_dataset_metadata("data/" + dataset.dataset_name).to_numpy(), dtype=torch.float
     )
@@ -78,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=str,
-        required=True,
+        default="fashion",
         help="The name of the dataset to run on.",
         choices=["fashion", "flowers", "emotions"]
     )

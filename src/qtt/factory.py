@@ -1,5 +1,5 @@
 import os
-import json
+
 import pandas as pd
 from ConfigSpace.read_and_write import json as cs_json
 
@@ -15,7 +15,8 @@ def get_optimizer(name_or_path: str):
         file_path = os.path.dirname(os.path.abspath(__file__))
         root = os.path.join(file_path, "pretrained", "mtlbm", version)
     else:
-        raise RuntimeError("Right now only works for mtlbm/...")
+        assert os.path.exists(name_or_path), f"{name_or_path} does not exist."
+        root = name_or_path
 
     config_path = os.path.join(root, "space.json")
     config_space = cs_json.read(open(config_path, "r").read())
@@ -23,9 +24,8 @@ def get_optimizer(name_or_path: str):
     norm_path = os.path.join(root, "config_norm.csv")
     config_norm = pd.read_csv(norm_path, index_col=0)
     cm = ConfigManager(config_space, config_norm)
-    config = json.load(open(os.path.join(root, "config.json"), "r"))
-    dyhpo = DyHPO(**config)
-    cost_estimator = CostEstimator(**config)
+    dyhpo = DyHPO.from_pretrained(root)
+    cost_estimator = CostEstimator.from_pretrained(root)
 
     optimizer = QuickOptimizer(cm, dyhpo, cost_estimator)
     return optimizer
